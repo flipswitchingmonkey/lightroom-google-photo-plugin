@@ -24,6 +24,7 @@ logger:enable('logfile')
 
 local ACCESS_TOKEN_URL = "https://www.googleapis.com/oauth2/v4/token"
 
+-- These need to be filled out with your own app credentials
 local CONSUMER_KEY = ""
 local CONSUMER_SECRET = ""
 local SALT = ""
@@ -322,7 +323,7 @@ end
 
 	--------------------------------------------------------------------------------
 function GPhotoAPI.login(context)
-	local redirectURI = 'https://stanaka.github.io/lightroom-google-photo-plugin/redirect'
+	local redirectURI = 'http://lightroom-google-photo-plugin.flipswitchingmonkey.com/redirect.html'
 	--local redirectURI = 'urn:ietf:wg:oauth:2.0:oob'
 	local scope = 'https://picasaweb.google.com/data/'
 	local authURL = string.format(
@@ -380,7 +381,7 @@ function GPhotoAPI.login(context)
 	local response, headers = call_it( "POST", ACCESS_TOKEN_URL, args, math.random(99999) )
 	logger:info(response)
 	if not response or not headers.status then
-		LrErrors.throwUserError( "Could not connect to 500px.com. Please make sure you are connected to the internet and try again." )
+		LrErrors.throwUserError( "Could not connect to Google. Please make sure you are connected to the internet and try again." )
 	end
 
 	local json = require 'json'
@@ -439,33 +440,35 @@ function GPhotoAPI.findOrCreateAlbum(propertyTable, albumName)
 	local entries = findXMLNodesByName(xml, 'entry')
 	for k, entry in pairs(entries) do
 		local title = findXMLNodeByName(entry, 'title', nil, 'text')
+		local albumId = findXMLNodeByName(entry, 'id', 'http://schemas.google.com/photos/2007', 'text')
 		logger:info("Album:", title)
+		logger:info("AlbumID:", albumId)
 		if title == albumName then
 			local albumId = findXMLNodeByName(entry, 'id', 'http://schemas.google.com/photos/2007', 'text')
 			logger:info("Album found:", albumId)
 			return albumId
 		end
 	end
+	LrErrors.throwUserError('Picasaweb API does not allow creation of Albums any more. Manually create them first in the web interface.');
+	-- url = string.format('https://picasaweb.google.com/data/feed/api/user/%s', GPhotoAPI.getUserId(propertyTable))
+	-- local body = string.format([[
+    --     <entry xmlns='http://www.w3.org/2005/Atom'
+    --         xmlns:media='http://search.yahoo.com/mrss/'
+    --         xmlns:gphoto='http://schemas.google.com/photos/2007'>
+    --       <title type='text'>%s</title>
+    --       <category scheme='http://schemas.google.com/g/2005#kind'
+    --         term='http://schemas.google.com/photos/2007#album'></category>
+    --     </entry>]], albumName)
+	-- local headers = auth_header(propertyTable)
+	-- headers[#headers+1] = { field = 'Content-Type', value = 'application/atom+xml' }
 
-	url = string.format('https://picasaweb.google.com/data/feed/api/user/%s', GPhotoAPI.getUserId(propertyTable))
-	local body = string.format([[
-        <entry xmlns='http://www.w3.org/2005/Atom'
-            xmlns:media='http://search.yahoo.com/mrss/'
-            xmlns:gphoto='http://schemas.google.com/photos/2007'>
-          <title type='text'>%s</title>
-          <category scheme='http://schemas.google.com/g/2005#kind'
-            term='http://schemas.google.com/photos/2007#album'></category>
-        </entry>]], albumName)
-	local headers = auth_header(propertyTable)
-	headers[#headers+1] = { field = 'Content-Type', value = 'application/atom+xml' }
+	-- local result, hdrs = LrHttp.post( url, body, headers )
+	-- logger:trace("findOrCreateAlbum result:", result)
 
-	local result, hdrs = LrHttp.post( url, body, headers )
-	logger:trace("findOrCreateAlbum result:", result)
-
-	local entry = LrXml.parseXml( result )
-	local albumId = findXMLNodeByName(entry, 'id', 'http://schemas.google.com/photos/2007', 'text')
-	logger:info("Album created:", albumId)
-	return albumId
+	-- local entry = LrXml.parseXml( result )
+	-- local albumId = findXMLNodeByName(entry, 'id', 'http://schemas.google.com/photos/2007', 'text')
+	-- logger:info("Album created:", albumId)
+	-- return albumId
 end
 
 --------------------------------------------------------------------------------
